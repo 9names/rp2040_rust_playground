@@ -108,10 +108,6 @@ fn main() -> ! {
     let sin = hal::rom_data::float_funcs::fsin::ptr();
 
     loop {
-        // Toggle the Pico's led so we can show the code is working,
-        // even if the ws2812 is not wired up correctly
-        led_pin.toggle().unwrap();
-
         for (i, led) in leds.iter_mut().enumerate() {
             // An offset for each LED so they aren't all the same colour
             let hue_offs = i as f32 / 5.0;
@@ -140,6 +136,10 @@ fn main() -> ! {
         // ensure that it stay between 0.0 and 1.0
         while t > 1.0 {
             t -= 1.0;
+            // Toggle the Pico's led so we can show the code is working,
+            // even if the ws2812 is not wired up correctly
+            // This should happen once every 12 seconds
+            led_pin.toggle().unwrap();
         }
     }
 }
