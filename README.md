@@ -7,7 +7,7 @@ A collection of (small) Rust projects targeting the rp2040 microcontroller
 
 ## License
 
-All examples are dual-licensed under Apache 2.0 and MIT.
+All examples are dual-licensed under Apache 2.0 and MIT.  
 You may choose to comply with either of the licenses, or both.
 
 SPDX-License-Identifier: Apache-2.0 OR MIT
