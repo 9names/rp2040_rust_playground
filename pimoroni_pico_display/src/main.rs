@@ -15,7 +15,6 @@ use bsp::hal::{
     pac,
     sio::Sio,
     watchdog::Watchdog,
-    Timer,
 };
 use cortex_m_rt::entry;
 use defmt::*;
@@ -25,16 +24,14 @@ use embedded_graphics::image::Image;
 use embedded_graphics::image::ImageRawLE;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
-use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::digital::v2::ToggleableOutputPin;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_time::fixed_point::FixedPoint;
 use embedded_time::rate::Extensions;
 use panic_probe as _;
 use st7789::{Orientation, ST7789};
 // Expose our board support package as `bsp` to make porting code between boards easier
 use rp_pico as bsp;
-
-use crate::hal::gpio::DynPin;
 
 struct RgbPins {
     pub red: hal::gpio::Pin<hal::gpio::bank0::Gpio6, hal::gpio::Output<hal::gpio::PushPull>>,
@@ -83,6 +80,12 @@ fn main() -> ! {
     // Backlight
     let bl = pins.gpio21.into_push_pull_output();
 
+    // All the pushbuttons
+    let button_a = pins.gpio12.into_pull_up_input();
+    let button_b = pins.gpio13.into_pull_up_input();
+    let button_x = pins.gpio14.into_pull_up_input();
+    let button_y = pins.gpio15.into_pull_up_input();
+
     let mut rgb: RgbPins = RgbPins {
         red: pins.gpio6.into_push_pull_output(),
         green: pins.gpio7.into_push_pull_output(),
@@ -124,6 +127,24 @@ fn main() -> ! {
     led_pin.set_high().unwrap();
     debug!("entering main loop");
     loop {
+        // Update the state of the RGB LED to indicate that a button press has been observed
+        if button_a.is_low().unwrap() {
+            rgb.red.set_low().unwrap();
+            rgb.green.set_high().unwrap();
+        } else if button_b.is_low().unwrap() {
+            rgb.green.set_low().unwrap();
+            rgb.red.set_high().unwrap();
+        } else if button_x.is_low().unwrap() {
+            rgb.green.set_low().unwrap();
+            rgb.red.set_low().unwrap();
+        } else if button_y.is_low().unwrap() {
+            rgb.green.set_low().unwrap();
+            rgb.red.set_low().unwrap();
+            rgb.blue.set_high().unwrap();
+        } else {
+            rgb.red.set_high().unwrap();
+            rgb.green.set_high().unwrap();
+        }
         // Toggle the Pico's led so we can show the code is working,
         led_pin.toggle().unwrap();
         // Toggle the Pico display's blue LED so we can show that is working too

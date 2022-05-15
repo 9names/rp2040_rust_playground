@@ -17,9 +17,6 @@ panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
 rp-pico = "0.3.0"
 
-smart-leds = "0.3.0"
-ws2812-pio = { git = "https://github.com/ithinuel/ws2812-pio-rs", rev = "fd6b6604d65a66242b52ccf7f24a95ca325991dd" }
-
 embedded-graphics = "0.7"
 # newer version changes pins, need to fix code to update further
 st7789 = { git = "https://github.com/almindor/st7789", rev = "e0fd943611afbb502f907198118539a608f51ca1" }
