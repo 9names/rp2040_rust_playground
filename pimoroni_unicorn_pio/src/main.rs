@@ -9,6 +9,8 @@
 #![no_std]
 #![no_main]
 
+use core::convert::TryInto;
+
 use cortex_m_rt::entry;
 use defmt::*;
 use defmt_rtt as _;
@@ -268,9 +270,6 @@ fn main() -> ! {
         &mut pac.RESETS,
     );
     let (mut pio, sm0, _, _, _) = pac.PIO0.split(&mut pac.RESETS);
-    //let pio = pac.PIO0;
-    // prepare the PIO program
-    //let mut a = pio::Assembler::<32>::new_with_side_set(SIDESET);
 
     /*
     ; set pins:
@@ -395,7 +394,7 @@ fn main() -> ! {
 
     let loop_update_freq = 1000;
     let mut loop_counter = 0;
-
+    init_bitstream();
     // Install the program into PIO instruction memory.
     let installed = pio.install(&program).unwrap();
     let (mut sm, rx, mut tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
@@ -404,21 +403,21 @@ fn main() -> ! {
         .set_pins(led_data.id().num, 4)
         .out_pins(row_6.id().num, 7)
         .side_set_pin_base(9)
-        .clock_divisor(100.0) // as slow as possible
+        .clock_divisor(1.0) // as slow as possible
         .build(sm0);
 
     sm.set_pins([
-        (led_data.id().num, PinState::Low),
-        (led_clock.id().num, PinState::Low),
-        (led_latch.id().num, PinState::Low),
-        (led_blank.id().num, PinState::Low),
-        (row_0.id().num, PinState::Low),
-        (row_1.id().num, PinState::Low),
-        (row_2.id().num, PinState::Low),
-        (row_3.id().num, PinState::Low),
-        (row_4.id().num, PinState::Low),
-        (row_5.id().num, PinState::Low),
-        (row_6.id().num, PinState::Low),
+        (led_data.id().num, PinState::High),
+        (led_clock.id().num, PinState::High),
+        (led_latch.id().num, PinState::High),
+        (led_blank.id().num, PinState::High),
+        (row_0.id().num, PinState::High),
+        (row_1.id().num, PinState::High),
+        (row_2.id().num, PinState::High),
+        (row_3.id().num, PinState::High),
+        (row_4.id().num, PinState::High),
+        (row_5.id().num, PinState::High),
+        (row_6.id().num, PinState::High),
     ]);
     sm.set_pindirs([
         (led_data.id().num, PinDir::Output),
@@ -438,15 +437,8 @@ fn main() -> ! {
 
     let mut x = 0;
     let mut y = 0;
-
-    // for y in 0..HEIGHT - 1 {
-    //     for x in 0..WIDTH - 1 {
-    //         set_pixel(x, y, 0, 0, 255);
-    //     }
-    // }
-
     loop {
-        set_pixel(x, y, 0, 0, 255);
+        set_pixel(x, y, 0, 0, 0);
         x += 1;
 
         if x > WIDTH {
@@ -456,97 +448,12 @@ fn main() -> ! {
         if y > HEIGHT {
             y = 0;
         }
-        set_pixel(x, y, 0, 255, 0);
+        set_pixel(x, y, 255, 255, 255);
         let _ = led_pin.toggle();
-        for i in 0..BITSTREAM_LENGTH as usize / 4 {
-            let is = i * 4;
-            let bitval: u32 = unsafe {
-                (BITSTREAM[is] as u32) << 24
-                    | (BITSTREAM[is + 1] as u32) << 16
-                    | (BITSTREAM[is + 2] as u32) << 8
-                    | (BITSTREAM[is + 3] as u32)
-            };
-            // wait for space
+        for batch in unsafe { BITSTREAM.chunks_exact(4) } {
+            let arr: [u8; 4] = [batch[0], batch[1], batch[2], batch[3]];
             while tx.is_full() {}
-            tx.write(bitval);
-        }
-    }
-
-    led_blank.set_low().unwrap();
-    led_latch.set_low().unwrap();
-    loop {
-        loop_counter += 1;
-        if loop_counter >= loop_update_freq {
-            update_framebuffer();
-            loop_counter = 0;
-        }
-        for row in 0..ROW_COUNT {
-            row_6.set_high().unwrap();
-            row_5.set_high().unwrap();
-            row_4.set_high().unwrap();
-            row_3.set_high().unwrap();
-            row_2.set_high().unwrap();
-            row_1.set_high().unwrap();
-            row_0.set_high().unwrap();
-            match row {
-                6 => {
-                    row_6.set_low().unwrap();
-                }
-                5 => {
-                    row_5.set_low().unwrap();
-                }
-                4 => {
-                    row_4.set_low().unwrap();
-                }
-                3 => {
-                    row_3.set_low().unwrap();
-                }
-                2 => {
-                    row_2.set_low().unwrap();
-                }
-                1 => {
-                    row_1.set_low().unwrap();
-                }
-                0 => {
-                    row_0.set_low().unwrap();
-                }
-                _ => {}
-            }
-            for width in 0..COL_COUNT {
-                let t = row * COL_COUNT + width;
-                let element = unsafe { FRAME_BUFFER[t as usize] };
-
-                led_clock.set_low().unwrap();
-                if element.red {
-                    led_data.set_high().unwrap();
-                } else {
-                    led_data.set_low().unwrap();
-                }
-                led_clock.set_high().unwrap();
-
-                led_clock.set_low().unwrap();
-                if element.blue {
-                    led_data.set_high().unwrap();
-                } else {
-                    led_data.set_low().unwrap();
-                }
-                led_clock.set_high().unwrap();
-
-                led_clock.set_low().unwrap();
-                if element.green {
-                    led_data.set_high().unwrap();
-                } else {
-                    led_data.set_low().unwrap();
-                }
-                led_clock.set_high().unwrap();
-            }
-
-            led_blank.set_low().unwrap();
-            led_latch.set_high().unwrap();
-            // Need a little delay here or the LEDs won't stay visible long enough
-            delay.delay_us(1);
-            led_latch.set_low().unwrap();
-            led_blank.set_high().unwrap();
+            tx.write(u32::from_be_bytes(arr));
         }
     }
 }
