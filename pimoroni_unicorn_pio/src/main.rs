@@ -14,128 +14,38 @@ use core::convert::TryInto;
 use cortex_m_rt::entry;
 use defmt::*;
 use defmt_rtt as _;
-use embedded_hal::digital::v2::{OutputPin, ToggleableOutputPin};
-use embedded_time::fixed_point::FixedPoint;
+use embedded_hal::digital::v2::ToggleableOutputPin;
 use panic_probe as _;
 
-use bsp::{
-    hal::{
-        clocks::{init_clocks_and_plls, Clock},
-        gpio::{DynPin, FunctionPio0, Pin},
-        pac,
-        pio::{
-            PIOExt, PinDir, PinState, Rx, ShiftDirection, StateMachine, StateMachineIndex, Tx,
-            UninitStateMachine, ValidStateMachine, PIO,
-        },
-        sio::Sio,
-        watchdog::Watchdog,
-        Timer,
-    },
-    Gp8Pio0,
+use bsp::hal::{
+    clocks::init_clocks_and_plls,
+    gpio::{DynPin, FunctionPio0, Pin},
+    pac,
+    pio::{PIOExt, PinDir, PinState, ShiftDirection, UninitStateMachine, ValidStateMachine, PIO},
+    sio::Sio,
+    watchdog::Watchdog,
 };
-use pio::{Instruction, InstructionOperands, SideSet};
 use rp_pico as bsp;
 
-#[derive(Copy, Clone)]
-struct Rgb {
-    red: bool,
-    blue: bool,
-    green: bool,
+extern "C" {
+    //pub fn init_bitstream();
+    //pub fn set_pixel(x: u8, y: u8, r: u8, g: u8, b: u8);
+    // pub static mut BITSTREAM: [u8; 1260usize];
+
 }
 
-const COL_COUNT: u32 = 16;
-const ROW_COUNT: u32 = 7;
-const ARRAY_SIZE: usize = (ROW_COUNT * COL_COUNT) as usize;
-static mut FRAME_BUFFER: [Rgb; ARRAY_SIZE] = [Rgb {
-    red: false,
-    blue: false,
-    green: false,
-}; ARRAY_SIZE];
-
-static mut CURRENT_COLOUR: u8 = 0;
-static mut CURRENT_PIXEL: u16 = 0;
-
-fn lookup_colour(index: u8) -> Rgb {
-    match index {
-        0 => Rgb {
-            red: true,
-            green: false,
-            blue: false,
-        },
-        1 => Rgb {
-            red: false,
-            green: true,
-            blue: false,
-        },
-        2 => Rgb {
-            red: false,
-            green: false,
-            blue: true,
-        },
-        3 => Rgb {
-            red: true,
-            green: true,
-            blue: false,
-        },
-        4 => Rgb {
-            red: false,
-            green: true,
-            blue: true,
-        },
-        5 => Rgb {
-            red: true,
-            green: false,
-            blue: true,
-        },
-        6 => Rgb {
-            red: true,
-            green: true,
-            blue: true,
-        },
-        _ => Rgb {
-            red: false,
-            green: false,
-            blue: false,
-        },
-    }
-}
-
-fn update_framebuffer() {
-    let mut colour = unsafe { CURRENT_COLOUR };
-    let mut pixel = unsafe { CURRENT_PIXEL };
-    (0..ARRAY_SIZE as usize).for_each(|index| {
-        let colour = if pixel == index as u16 {
-            lookup_colour(colour)
-        } else {
-            lookup_colour(7)
-        };
-        unsafe { FRAME_BUFFER[index] = colour };
-    });
-    pixel += 1;
-    if pixel >= ARRAY_SIZE as u16 {
-        pixel = 0;
-        colour += 1;
-    }
-    if colour >= 7 {
-        colour = 0;
-    }
-    unsafe {
-        CURRENT_PIXEL = pixel;
-        CURRENT_COLOUR = colour;
-    }
-}
-
-const ROW_COUNT2: u32 = 7;
-const ROW_BYTES: u32 = 12;
-const BCD_FRAMES: u32 = 15; // includes fet discharge frame
-const BITSTREAM_LENGTH: u32 = (ROW_COUNT2 * ROW_BYTES * BCD_FRAMES);
+const ROW_COUNT2: usize = 7;
+const ROW_BYTES: usize = 12;
+const BCD_FRAMES: usize = 15; // includes fet discharge frame
+const BITSTREAM_LENGTH: usize = (ROW_COUNT2 * ROW_BYTES * BCD_FRAMES);
 const WIDTH: usize = 16;
 const HEIGHT: usize = 7;
 
 // must be aligned for 32bit dma transfer
-static mut BITSTREAM: [u8; BITSTREAM_LENGTH as usize] = [0; BITSTREAM_LENGTH as usize];
+#[no_mangle]
+pub static mut BITSTREAM: [u8; BITSTREAM_LENGTH as usize] = [0; BITSTREAM_LENGTH as usize];
 
-const GAMMA_14BIT: [u16; 256] = [
+static GAMMA_14BIT: [u16; 256] = [
     0, 0, 0, 1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 23, 28, 32, 37, 42, 48, 54, 61, 67, 75, 82, 90, 99,
     108, 117, 127, 137, 148, 159, 170, 182, 195, 207, 221, 234, 249, 263, 278, 294, 310, 326, 343,
     361, 379, 397, 416, 435, 455, 475, 496, 517, 539, 561, 583, 607, 630, 654, 679, 704, 730, 756,
@@ -154,7 +64,7 @@ const GAMMA_14BIT: [u16; 256] = [
     15273, 15410, 15547, 15685, 15823, 15962, 16102, 16242, 16383,
 ];
 
-fn init_bitstream() {
+fn init_bitstream_rs() {
     // initialise the bcd timing values and row selects in the bitstream
     for row in 0..HEIGHT {
         for frame in 0..BCD_FRAMES {
@@ -166,7 +76,7 @@ fn init_bitstream() {
             let bcd_offset = offset + 10;
 
             // the last bcd frame is used to allow the fets to discharge to avoid ghosting
-            if (frame == BCD_FRAMES - 1u32) {
+            if (frame == BCD_FRAMES - 1usize) {
                 let bcd_ticks: u16 = 65535;
                 unsafe {
                     BITSTREAM[row_select_offset] = 0b11111111;
@@ -193,13 +103,19 @@ fn init_bitstream() {
     // }
 }
 
-fn set_pixel(x: usize, y: usize, r: usize, g: usize, b: usize) {
+fn set_pixel(x: u8, y: u8, r: u8, g: u8, b: u8) {
+    // unsafe {
+    //     set_pixel(x, y, r, g, b);
+    // }
+    // return;
+    let x = x as usize;
+    let y = y as usize;
     if x >= WIDTH || y >= HEIGHT {
         return;
     }
 
     // make those coordinates sane
-    let mut x = (WIDTH - 1) - x;
+    let x = (WIDTH - 1) - x;
 
     // work out the byte offset of this pixel
     let byte_offset = x / 2;
@@ -208,9 +124,9 @@ fn set_pixel(x: usize, y: usize, r: usize, g: usize, b: usize) {
     let shift = if x % 2 == 0 { 0 } else { 4 };
     let nibble_mask = 0b00001111 << shift;
 
-    let mut gr = GAMMA_14BIT[r];
-    let mut gg = GAMMA_14BIT[g];
-    let mut gb = GAMMA_14BIT[b];
+    let mut gr = GAMMA_14BIT[r as usize];
+    let mut gg = GAMMA_14BIT[g as usize];
+    let mut gb = GAMMA_14BIT[b as usize];
 
     // set the appropriate bits in the separate bcd frames
     for frame in 0..BCD_FRAMES {
@@ -261,8 +177,6 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
-
     let pins = bsp::Pins::new(
         pac.IO_BANK0,
         pac.PADS_BANK0,
@@ -271,101 +185,12 @@ fn main() -> ! {
     );
     let (mut pio, sm0, _, _, _) = pac.PIO0.split(&mut pac.RESETS);
 
-    /*
-    ; set pins:
-    ; 0: data (base)
-    ; 1: clock
-    ; 2: latch
-    ; 3: blank
+    let program = pio_proc::pio_file!("./src/pico_unicorn.pio");
 
-    ; sideset pin: clock
-
-    ; out pins:
-    ; 0: row 6 select
-    ; 1: row 5 select
-    ; 2: row 4 select
-    ; 3: row 3 select
-    ; 4: row 2 select
-    ; 5: row 1 select
-    ; 6: row 0 select
-    */
-
-    let mut program = pio_proc::pio_asm!(
-        ".side_set 1 opt"
-
-        ".wrap_target"
-        // clock out 16 pixels worth of data
-            "set y, 15"                // 15 because `jmp` test is pre decrement
-
-            "pixels:"
-
-            "pull ifempty"
-
-            // dummy bit used to align pixel data to nibbles
-            "out null, 1  "            // discard
-
-            // red bit
-            "out x, 1       side 0 "   // pull in first bit from OSR into register X, clear clock
-            "set pins, 8"              // clear data bit (maintain blank)
-            "jmp !x endr"              // if bit was zero jump to endr
-            "set pins, 9"              // set data bit (maintain blank)
-        "endr: "                       //
-            "nop            side 1"    // clock in bit
-
-            // green bit
-            "out x, 1       side 0"    // pull in first bit from OSR into register X, clear clock
-            "set pins, 8"              // clear data bit (maintain blank)
-            "jmp !x endg"              // if bit was zero jump to endg
-            "set pins, 9"              // set data bit (maintain blank)
-        "endg:"                        //
-            "nop            side 1"    // clock in bit
-
-            // blue bit
-            "out x, 1       side 0"    // pull in first bit from OSR into register X, clear clock
-            "set pins, 8"              // clear data bit (maintain blank)
-            "jmp !x endb"              // if bit was zero jump to endb
-            "set pins, 9"              // set data bit (maintain blank)
-        "endb:"                        //
-            "nop            side 1"    // clock in bit
-
-            "jmp y-- pixels"           // jump back to start of pixel loop
-
-            "pull"
-
-        // dummy byte to 32 bit align row data
-            "out null, 8"
-
-        // select active row
-            "out null, 1"            // discard dummy bit
-            "out pins, 7"              // output row selection mask
-
-        // pull bcd tick count into x register
-            "out x, 16"
-
-        // set latch pin to output column data on shift registers
-            "set pins, 12"             // set latch pin (while keeping blank high)
-
-        // set blank pin to enable column drivers
-            "set pins, 4"
-
-        "bcd_count:"
-            "jmp x-- bcd_count "      // loop until bcd delay complete
-
-        // disable all row outputs
-            "set x, 0"                // load x register with 0 (we can't set more than 5 bits at a time)
-            "mov pins, !x"            // write inverted x (0xff) to row pins latching them all high
-
-        // disable led output (blank) and clear latch pin
-            "set pins, 8"
-
-        ".wrap"
-    )
-    .program;
-
-    let mut led_data: Pin<_, FunctionPio0> = pins.gpio8.into_mode();
-    let mut led_clock: Pin<_, FunctionPio0> = pins.gpio9.into_mode();
-    let mut led_latch: Pin<_, FunctionPio0> = pins.gpio10.into_mode();
     let mut led_blank: Pin<_, FunctionPio0> = pins.gpio11.into_mode();
+    let mut led_latch: Pin<_, FunctionPio0> = pins.gpio10.into_mode();
+    let mut led_clock: Pin<_, FunctionPio0> = pins.gpio9.into_mode();
+    let mut led_data: Pin<_, FunctionPio0> = pins.gpio8.into_mode();
     let mut row_0: Pin<_, FunctionPio0> = pins.gpio22.into_mode();
     let mut row_1: Pin<_, FunctionPio0> = pins.gpio21.into_mode();
     let mut row_2: Pin<_, FunctionPio0> = pins.gpio20.into_mode();
@@ -374,10 +199,10 @@ fn main() -> ! {
     let mut row_5: Pin<_, FunctionPio0> = pins.gpio17.into_mode();
     let mut row_6: Pin<_, FunctionPio0> = pins.gpio16.into_mode();
 
-    let mut led_data: DynPin = led_data.into();
-    let mut led_clock: DynPin = led_clock.into();
-    let mut led_latch: DynPin = led_latch.into();
     let mut led_blank: DynPin = led_blank.into();
+    let mut led_latch: DynPin = led_latch.into();
+    let mut led_clock: DynPin = led_clock.into();
+    let mut led_data: DynPin = led_data.into();
     let mut row_0: DynPin = row_0.into();
     let mut row_1: DynPin = row_1.into();
     let mut row_2: DynPin = row_2.into();
@@ -394,16 +219,19 @@ fn main() -> ! {
 
     let loop_update_freq = 1000;
     let mut loop_counter = 0;
-    init_bitstream();
+    init_bitstream_rs();
     // Install the program into PIO instruction memory.
-    let installed = pio.install(&program).unwrap();
+    let installed = pio.install(&program.program).unwrap();
+
     let (mut sm, rx, mut tx) = bsp::hal::pio::PIOBuilder::from_program(installed)
-        // use both RX & TX FIFO
         .buffers(bsp::hal::pio::Buffers::OnlyTx)
-        .set_pins(led_data.id().num, 4)
         .out_pins(row_6.id().num, 7)
-        .side_set_pin_base(9)
-        .clock_divisor(1.0) // as slow as possible
+        .side_set_pin_base(led_clock.id().num)
+        .set_pins(led_data.id().num, 4)
+        .autopull(true)
+        .pull_threshold(32)
+        .out_shift_direction(ShiftDirection::Right)
+        .clock_divisor(1.0)
         .build(sm0);
 
     sm.set_pins([
@@ -435,25 +263,21 @@ fn main() -> ! {
     let _sm = sm.start();
     let mut led_pin = pins.led.into_push_pull_output();
 
-    let mut x = 0;
-    let mut y = 0;
+    let _ = led_pin.toggle();
     loop {
-        set_pixel(x, y, 0, 0, 0);
-        x += 1;
-
-        if x > WIDTH {
-            x = 0;
-            y += 1;
-        }
-        if y > HEIGHT {
-            y = 0;
-        }
-        set_pixel(x, y, 255, 255, 255);
-        let _ = led_pin.toggle();
-        for batch in unsafe { BITSTREAM.chunks_exact(4) } {
-            let arr: [u8; 4] = [batch[0], batch[1], batch[2], batch[3]];
-            while tx.is_full() {}
-            tx.write(u32::from_be_bytes(arr));
+        let colours = [(255, 0, 0), (0, 255, 0), (0, 0, 255)];
+        for color in colours {
+            for y in 0..HEIGHT as u8 {
+                for x in 0..WIDTH as u8 {
+                    set_pixel(x, y, color.0, color.1, color.2);
+                    for batch in unsafe { BITSTREAM.chunks_exact(4) } {
+                        while !tx.write(u32::from_le_bytes(unsafe {
+                            batch.try_into().unwrap_unchecked()
+                        })) {}
+                    }
+                    set_pixel(x, y, 0, 0, 0);
+                }
+            }
         }
     }
 }
