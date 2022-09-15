@@ -16,8 +16,6 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_time::fixed_point::FixedPoint;
 use panic_probe as _;
 
-use rp_pico as bsp;
-
 use bsp::hal::{
     clocks::{init_clocks_and_plls, Clock},
     pac,
@@ -25,6 +23,7 @@ use bsp::hal::{
     watchdog::Watchdog,
     Timer,
 };
+use rp_pico as bsp;
 
 #[derive(Copy, Clone)]
 struct Rgb {
