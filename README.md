@@ -7,9 +7,12 @@ A collection of (small) Rust projects targeting the rp2040 microcontroller
 
 [pimoroni_unicorn] Simple test of the pimoroni unicorn - bitbang each pixel of the matrix
 
+[pimoroni_unicorn_pio] Port of Pimoroni's PIO driver to Rust, with an embedded-graphics impl + demo
+
 [ws2812_8x8]: https://github.com/9names/rp2040_rust_playground/tree/main/ws2812_8x8
 [pimoroni_pico_display]: https://github.com/9names/rp2040_rust_playground/tree/main/pimoroni_pico_display
 [pimoroni_unicorn]: https://github.com/9names/rp2040_rust_playground/tree/main/pimoroni_unicorn
+[pimoroni_unicorn_pio]: https://github.com/9names/rp2040_rust_playground/tree/main/pimoroni_unicorn_pio
 
 ## License
 
