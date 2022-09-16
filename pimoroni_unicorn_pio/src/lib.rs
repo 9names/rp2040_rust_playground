@@ -19,19 +19,21 @@ pub const WIDTH: usize = 16;
 pub const HEIGHT: usize = 7;
 
 // TODO: must be aligned for 32bit dma transfer
-#[no_mangle]
-pub static mut BITSTREAM: [u8; BITSTREAM_LENGTH as usize] = [0; BITSTREAM_LENGTH as usize];
+#[repr(C, align(4))]
+struct Bitstream {
+    data: [u8; BITSTREAM_LENGTH as usize],
+}
 
-// let mut led_latch: Pin<_, FunctionPio0> = pins.gpio10.into_mode();
-// let mut led_clock: Pin<_, FunctionPio0> = pins.gpio9.into_mode();
-// let mut led_data: Pin<_, FunctionPio0> = pins.gpio8.into_mode();
-// let mut row_0: Pin<_, FunctionPio0> = pins.gpio22.into_mode();
-// let mut row_1: Pin<_, FunctionPio0> = pins.gpio21.into_mode();
-// let mut row_2: Pin<_, FunctionPio0> = pins.gpio20.into_mode();
-// let mut row_3: Pin<_, FunctionPio0> = pins.gpio19.into_mode();
-// let mut row_4: Pin<_, FunctionPio0> = pins.gpio18.into_mode();
-// let mut row_5: Pin<_, FunctionPio0> = pins.gpio17.into_mode();
-// let mut row_6: Pin<_, FunctionPio0> = pins.gpio16.into_mode();
+impl Bitstream {
+    const fn new() -> Self {
+        Self {
+            data: [0; BITSTREAM_LENGTH as usize],
+        }
+    }
+}
+
+#[no_mangle]
+static mut BITSTREAM: Bitstream = Bitstream::new();
 
 pub struct UnicornPins {
     pub led_blank: Pin<Gpio11, FunctionPio0>,
@@ -226,20 +228,20 @@ where
                 if frame == BCD_FRAMES - 1usize {
                     let bcd_ticks: u16 = 65535;
                     unsafe {
-                        BITSTREAM[row_select_offset] = 0b11111111;
-                        BITSTREAM[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
-                        BITSTREAM[bcd_offset] = (bcd_ticks & 0xff) as u8;
+                        BITSTREAM.data[row_select_offset] = 0b11111111;
+                        BITSTREAM.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
+                        BITSTREAM.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
                         for col in 0..6 {
-                            BITSTREAM[offset + col] = 0xff;
+                            BITSTREAM.data[offset + col] = 0xff;
                         }
                     }
                 } else {
                     let row_select_mask = !(1 << (7 - row));
                     let bcd_ticks: u16 = 1 << frame;
                     unsafe {
-                        BITSTREAM[row_select_offset] = row_select_mask;
-                        BITSTREAM[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
-                        BITSTREAM[bcd_offset] = (bcd_ticks & 0xff) as u8;
+                        BITSTREAM.data[row_select_offset] = row_select_mask;
+                        BITSTREAM.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
+                        BITSTREAM.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
                     }
                 }
             }
@@ -316,12 +318,12 @@ where
 
             // clear existing data
             unsafe {
-                BITSTREAM[offset + byte_offset] &= !nibble_mask;
+                BITSTREAM.data[offset + byte_offset] &= !nibble_mask;
             }
 
             // set new data
             unsafe {
-                BITSTREAM[offset + byte_offset] |= rgbd as u8;
+                BITSTREAM.data[offset + byte_offset] |= rgbd as u8;
             }
 
             gr >>= 1;
@@ -331,7 +333,7 @@ where
     }
 
     pub fn draw(&mut self) {
-        for batch in unsafe { BITSTREAM.chunks_exact(4) } {
+        for batch in unsafe { BITSTREAM.data.chunks_exact(4) } {
             while !self.tx.write(u32::from_le_bytes(unsafe {
                 batch.try_into().unwrap_unchecked()
             })) {}
