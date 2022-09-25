@@ -18,6 +18,9 @@ const BITSTREAM_LENGTH: usize = ROW_COUNT2 * ROW_BYTES * BCD_FRAMES;
 pub const WIDTH: usize = 16;
 pub const HEIGHT: usize = 7;
 
+mod buttons;
+pub use buttons::{ButtonHandler, ButtonState, Buttons};
+
 // TODO: must be aligned for 32bit dma transfer
 #[repr(C, align(4))]
 struct Bitstream {
