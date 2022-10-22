@@ -1,0 +1,26 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+# Choose a default "cargo run" tool: we're going to use elf2uf2-rs here.
+# runner = "probe-run --chip RP2040"
+runner = "cargo embed"
+# runner = "elf2uf2-rs -d"
+
+rustflags = [
+  # nmagic is required for some alignment trickery
+  "-C",
+  "link-arg=--nmagic",
+  # linker script specially crafted to load program into RAM but store it in flash
+  "-C",
+  "link-arg=-Tlink.ram.x",
+
+  # Code-size optimizations.
+  #   trap unreachable can save a lot of space, but requires nightly compiler.
+  #   uncomment the next line if you wish to enable it
+  # "-Z", "trap-unreachable=no",
+  "-C",
+  "inline-threshold=5",
+  "-C",
+  "no-vectorize-loops",
+]
+
+[build]
+target = "thumbv6m-none-eabi"
