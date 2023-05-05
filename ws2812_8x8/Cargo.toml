@@ -15,10 +15,10 @@ defmt = "=0.3.2"
 defmt-rtt = "0.4.0"
 panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
-rp-pico = "0.3.0"
+rp-pico = "0.7.0"
 
 smart-leds = "0.3.0"
-ws2812-pio = { git = "https://github.com/ithinuel/ws2812-pio-rs", rev = "fd6b6604d65a66242b52ccf7f24a95ca325991dd" }
+ws2812-pio = "0.6.0"
 
 # cargo build/run
 [profile.dev]
