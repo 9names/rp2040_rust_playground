@@ -9,7 +9,7 @@ use defmt_rtt as _;
 use embedded_graphics_core::pixelcolor::Rgb888;
 use embedded_hal::digital::v2::{InputPin, ToggleableOutputPin};
 use panic_probe as _;
-use pimoroni_unicorn_pio::UnicornPins;
+use pimoroni_unicorn_plasma::UnicornPins;
 
 use bsp::hal::{
     clocks::init_clocks_and_plls, gpio::DynPin, pac, pio::PIOExt, sio::Sio, watchdog::Watchdog,
@@ -182,7 +182,7 @@ fn main() -> ! {
         row_6: pins.gpio16.into_mode(),
     };
 
-    let mut uni = pimoroni_unicorn_pio::Unicorn::new(&mut pio, sm0, unipins);
+    let mut uni = pimoroni_unicorn_plasma::Unicorn::new(&mut pio, sm0, unipins);
     // Buttons
     let btn_a = pins.gpio12.into_pull_up_input();
     let btn_b = pins.gpio13.into_pull_up_input();
@@ -243,9 +243,9 @@ fn main() -> ! {
         let hue_shift_f32 = hue_shift as f32 / 2000.0;
         let x_drift_f32 = x_drift as f32 / DRIFT_DIVISOR;
         let y_drift_f32 = y_drift as f32 / DRIFT_DIVISOR;
-        for y in 0..pimoroni_unicorn_pio::HEIGHT {
+        for y in 0..pimoroni_unicorn_plasma::HEIGHT {
             let y_scaled = y as f32 * plasma_scale_f32;
-            for x in 0..pimoroni_unicorn_pio::WIDTH {
+            for x in 0..pimoroni_unicorn_plasma::WIDTH {
                 let x_scaled = x as f32 * plasma_scale_f32;
                 let pix = t.plasma_pixel(x_scaled + x_drift_f32, y_scaled + y_drift_f32);
                 let value = hsv_to_rgb(pix + hue_shift_f32, 1.0, 1.0);
