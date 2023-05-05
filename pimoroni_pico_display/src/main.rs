@@ -26,8 +26,7 @@ use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
 use embedded_hal::digital::v2::ToggleableOutputPin;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
-use embedded_time::fixed_point::FixedPoint;
-use embedded_time::rate::Extensions;
+use fugit::RateExtU32;
 use panic_probe as _;
 use st7789::{Orientation, ST7789};
 // Expose our board support package as `bsp` to make porting code between boards easier
@@ -59,7 +58,7 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
+    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
 
     let pins = bsp::Pins::new(
         pac.IO_BANK0,

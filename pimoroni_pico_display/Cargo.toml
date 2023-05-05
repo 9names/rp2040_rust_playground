@@ -13,9 +13,10 @@ embedded-time = "0.12.0"
 
 defmt = "=0.3.2"
 defmt-rtt = "0.4.0"
+fugit = "0.3.6"
 panic-probe = { version = "0.3.0", features = ["print-defmt"] }
 
-rp-pico = "0.3.0"
+rp-pico = "0.7.0"
 
 embedded-graphics = "0.7"
 # newer version changes pins, need to fix code to update further
