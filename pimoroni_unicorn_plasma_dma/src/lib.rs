@@ -24,13 +24,13 @@ pub use buttons::{ButtonHandler, ButtonState, Buttons};
 // TODO: must be aligned for 32bit dma transfer
 #[repr(C, align(4))]
 struct Bitstream {
-    data: [u8; BITSTREAM_LENGTH as usize],
+    data: [u8; BITSTREAM_LENGTH],
 }
 
 impl Bitstream {
     const fn new() -> Self {
         Self {
-            data: [0; BITSTREAM_LENGTH as usize],
+            data: [0; BITSTREAM_LENGTH],
         }
     }
 }
@@ -61,9 +61,12 @@ where
     SM: ValidStateMachine<PIO = P>,
     C: ChannelIndex,
 {
+    #[allow(dead_code)]
     pio: &'pio mut PIO<P>,
+    #[allow(dead_code)]
     sm: StateMachine<SM, hal::pio::Running>,
     tx: Option<Tx<SM>>,
+    #[allow(dead_code)]
     pins: UnicornDynPins,
     channel: Option<Channel<C>>,
 }
@@ -231,8 +234,8 @@ where
         for row in 0..HEIGHT {
             for frame in 0..BCD_FRAMES {
                 // determine offset in the buffer for this row/frame
-                let offset = (row * ROW_BYTES as usize * BCD_FRAMES as usize)
-                    + (ROW_BYTES as usize * frame as usize);
+                let offset = (row * ROW_BYTES * BCD_FRAMES)
+                    + (ROW_BYTES * frame);
 
                 let row_select_offset = offset + 9;
                 let bcd_offset = offset + 10;
@@ -322,8 +325,8 @@ where
         // set the appropriate bits in the separate bcd frames
         for frame in 0..BCD_FRAMES {
             // determine offset in the buffer for this row/frame
-            let offset = (y * ROW_BYTES as usize * BCD_FRAMES as usize)
-                + (ROW_BYTES as usize * frame as usize);
+            let offset = (y * ROW_BYTES * BCD_FRAMES)
+                + (ROW_BYTES * frame);
 
             let mut rgbd = ((gr & 0b1) << 1) | ((gg & 0b1) << 3) | ((gb & 0b1) << 2);
 
