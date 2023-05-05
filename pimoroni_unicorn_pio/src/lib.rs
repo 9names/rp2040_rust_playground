@@ -57,9 +57,12 @@ where
     P: PIOExt + FunctionConfig,
     SM: ValidStateMachine<PIO = P>,
 {
+    #[allow(dead_code)]
     pio: &'pio mut PIO<P>,
+    #[allow(dead_code)]
     sm: StateMachine<SM, rp_pico::hal::pio::Running>,
     tx: Tx<SM>,
+    #[allow(dead_code)]
     pins: UnicornDynPins,
 }
 
@@ -101,7 +104,7 @@ where
             .autopull(true)
             .pull_threshold(32)
             .out_shift_direction(ShiftDirection::Right)
-            .clock_divisor(1.0)
+            .clock_divisor_fixed_point(1, 0)
             .build(sm);
 
         sm.set_pins([
