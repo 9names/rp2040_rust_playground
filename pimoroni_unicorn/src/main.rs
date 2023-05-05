@@ -91,7 +91,7 @@ fn lookup_colour(index: u8) -> Rgb {
 fn update_framebuffer() {
     let mut colour = unsafe { CURRENT_COLOUR };
     let mut pixel = unsafe { CURRENT_PIXEL };
-    (0..ARRAY_SIZE as usize).for_each(|index| {
+    (0..ARRAY_SIZE).for_each(|index| {
         let colour = if pixel == index as u16 {
             lookup_colour(colour)
         } else {
@@ -158,10 +158,10 @@ fn main() -> ! {
     let mut row_6 = pins.gpio16.into_push_pull_output();
 
     // Buttons
-    let mut btn_a = pins.gpio12.into_floating_input();
-    let mut btn_b = pins.gpio13.into_floating_input();
-    let mut btn_x = pins.gpio14.into_floating_input();
-    let mut btn_y = pins.gpio15.into_floating_input();
+    let _btn_a = pins.gpio12.into_floating_input();
+    let _btn_b = pins.gpio13.into_floating_input();
+    let _btn_x = pins.gpio14.into_floating_input();
+    let _btn_y = pins.gpio15.into_floating_input();
 
     let loop_update_freq = 1000;
     let mut loop_counter = 0;
