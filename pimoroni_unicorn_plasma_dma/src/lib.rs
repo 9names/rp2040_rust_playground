@@ -2,7 +2,7 @@
 
 use core::convert::TryInto;
 use hal::{
-    dma::{Channel, ChannelIndex, SingleBufferingConfig},
+    dma::{Channel, ChannelIndex, single_buffer},
     gpio::{bank0::*, DynPin, FunctionConfig, FunctionPio0, Pin},
     pio::{
         PIOExt, PinDir, PinState, ShiftDirection, StateMachine, StateMachineIndex, Tx,
@@ -374,7 +374,7 @@ where
 
         if let Some(channel) = self.channel.take() {
             if let Some(tx) = self.tx.take() {
-                let tx_transfer = SingleBufferingConfig::new(channel, s32, tx).start();
+                let tx_transfer = single_buffer::Config::new(channel, s32, tx).start();
                 let (channel, _from, to) = tx_transfer.wait();
                 self.tx.replace(to);
                 self.channel.replace(channel);
