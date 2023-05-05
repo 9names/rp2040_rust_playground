@@ -12,7 +12,7 @@ embedded-hal = { version = "0.2.5", features = ["unproven"] }
 panic-halt = "0.2.0"
 
 # We're using the HAL directly for this demo
-rp2040-hal = { version = "0.6", features = ["rt"] }
+rp2040-hal = { version = "0.8.1", features = ["rt"] }
 rp2040-boot2 = "0.2"
 
 # Everything below this line is just optimisation settings. You shouldn't need to mess with them.
