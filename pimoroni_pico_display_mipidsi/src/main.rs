@@ -12,7 +12,9 @@ use embedded_graphics::{
     text::{Alignment, Baseline, Text, TextStyleBuilder},
 };
 use embedded_hal::digital::v2::OutputPin;
-use mipidsi::{Builder, Orientation};
+use embedded_hal_bus::spi::ExclusiveDevice;
+use mipidsi::options::{Orientation, Rotation};
+use mipidsi::{models::ST7789, options::ColorInversion};
 use panic_probe as _;
 
 use rp_pico as bsp;
@@ -52,6 +54,7 @@ fn main() -> ! {
     .unwrap();
 
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
+    let mut timer = bsp::hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
 
     let pins = bsp::Pins::new(
         pac.IO_BANK0,
@@ -64,26 +67,33 @@ fn main() -> ! {
     // Setup SPI
     let display_dc = pins.gpio16.into_push_pull_output();
     let display_cs = pins.gpio17.into_push_pull_output();
-    let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
-    let _spi_mosi = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
+    let spi_sclk = pins.gpio18.into_function::<hal::gpio::FunctionSpi>();
+    let spi_mosi = pins.gpio19.into_function::<hal::gpio::FunctionSpi>();
+    let spi_miso = pins.gpio4.into_function::<hal::gpio::FunctionSpi>();
 
-    let spi = hal::Spi::<_, _, 8>::new(pac.SPI0);
+    let spi_bus = hal::Spi::<_, _, _, 8>::new(pac.SPI0, (spi_mosi, spi_miso, spi_sclk));
 
     // Exchange the uninitialised SPI driver for an initialised one
-    let spi = spi.init(
+    let spi_bus = spi_bus.init(
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
         12_000_000u32.Hz(),
-        &embedded_hal::spi::MODE_3,
+        embedded_hal::spi::MODE_3,
     );
+    let excl_spi_dev = ExclusiveDevice::new(spi_bus, display_cs, timer).unwrap();
     let mut rst_pin = pins.gpio22.into_push_pull_output();
     rst_pin.set_low().unwrap();
 
-    let di = SPIInterface::new(spi, display_dc, display_cs);
-    let mut display = Builder::st7789_pico1(di)
-        .with_display_size(135, 240)
-        .with_orientation(Orientation::Landscape(true))
-        .init(&mut delay, Some(rst_pin))
+    let di = SPIInterface::new(excl_spi_dev, display_dc);
+    let orientation = Orientation::new().rotate(Rotation::Deg90);
+
+    let mut display = mipidsi::Builder::new(ST7789, di)
+        .display_size(135, 240)
+        .display_offset(52, 40)
+        .invert_colors(ColorInversion::Inverted)
+        .reset_pin(rst_pin)
+        .orientation(orientation)
+        .init(&mut timer)
         .unwrap();
 
     display.clear(Rgb565::BLACK).unwrap();
