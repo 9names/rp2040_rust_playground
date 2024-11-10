@@ -62,8 +62,8 @@ fn main() -> ! {
 
     let mut led_pin = pins.led.into_push_pull_output();
     // Setup SPI
-    let spi_cs = pins.gpio17.into_push_pull_output();
-    let spi_miso = pins.gpio16.into_push_pull_output();
+    let display_dc = pins.gpio16.into_push_pull_output();
+    let display_cs = pins.gpio17.into_push_pull_output();
     let _spi_sclk = pins.gpio18.into_mode::<hal::gpio::FunctionSpi>();
     let _spi_mosi = pins.gpio19.into_mode::<hal::gpio::FunctionSpi>();
 
@@ -79,7 +79,7 @@ fn main() -> ! {
     let mut rst_pin = pins.gpio22.into_push_pull_output();
     rst_pin.set_low().unwrap();
 
-    let di = SPIInterface::new(spi, spi_miso, spi_cs);
+    let di = SPIInterface::new(spi, display_dc, display_cs);
     let mut display = Builder::st7789_pico1(di)
         .with_display_size(135, 240)
         .with_orientation(Orientation::Landscape(true))
