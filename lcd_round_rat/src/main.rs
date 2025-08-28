@@ -32,6 +32,7 @@ const LCD_HEIGHT: u32 = 240;
 extern crate alloc;
 // Linked-List First Fit Heap allocator (feature = "llff")
 use embedded_alloc::LlffHeap as Heap;
+use mousefood::prelude::*;
 
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
@@ -121,6 +122,8 @@ fn main() -> ! {
     // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
     // in series with the LED.
     // let mut led_pin = pins.gpio25.into_push_pull_output();
+    let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
+    // let mut terminal = Terminal::new(backend)?;
 
     loop {
         info!("on!");
