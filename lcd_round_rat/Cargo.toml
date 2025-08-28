@@ -22,6 +22,7 @@ fugit = "0.3.7"
 embedded-alloc = "0.6.0"
 mousefood = { git = "https://github.com/j-g00da/mousefood", rev="2c78249e169312a91482d0aac23337c687cf0dfa", features = []}
 portable-atomic = { version = "*", features = ["critical-section"]}
+ratatui = { version = "0.30.0-alpha.5", default-features = false }
 
 # cargo build/run
 [profile.dev]

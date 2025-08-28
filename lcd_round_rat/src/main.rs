@@ -11,6 +11,7 @@ use fugit::RateExtU32;
 use gc9a01a_driver::{Orientation, GC9A01A};
 use panic_probe as _;
 
+use ratatui::Terminal;
 use rp2040_hal::{
     self as hal,
     clocks::{init_clocks_and_plls, Clock},
@@ -122,8 +123,10 @@ fn main() -> ! {
     // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
     // in series with the LED.
     // let mut led_pin = pins.gpio25.into_push_pull_output();
-    let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
-    // let mut terminal = Terminal::new(backend)?;
+
+    // The RP2040 will crash if you call these!
+    // let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
+    // let mut terminal = Terminal::new(backend).unwrap();
 
     loop {
         info!("on!");
