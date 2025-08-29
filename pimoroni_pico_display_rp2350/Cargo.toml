@@ -1,0 +1,70 @@
+[package]
+edition = "2024"
+name = "rp235x-pico-display-mipidsi-example"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+embedded-hal = { version = "1.0.0" }
+
+defmt = "1"
+defmt-rtt = "1"
+panic-probe = { version = "1", features = ["print-defmt"] }
+
+# We're using a Pico 2 by default on this template
+#rp-pico2 = "0.9" # TODO: Do we have that crate already ?
+
+# If you're not going to use a Board Support Package you'll need these:
+rp235x-hal = { version = "0.3", features = [
+    "rt",
+    "critical-section-impl",
+    "binary-info",
+] }
+embedded-graphics = { version = "0.8.1", features = ["defmt"] }
+mipidsi = "0.9.0"
+# display-interface-spi = "0.5.0"
+embedded-hal-bus = { version = "0.3.0", features = ["defmt-03"] }
+
+# cargo build/run
+[profile.dev]
+debug = 2
+debug-assertions = true
+opt-level = 2
+overflow-checks = true
+
+# cargo build/run --release
+[profile.release]
+debug = 2
+debug-assertions = false
+lto = 'fat'
+opt-level = 2
+overflow-checks = false
+
+# do not optimize proc-macro crates = faster builds from scratch
+[profile.dev.build-override]
+debug = false
+debug-assertions = false
+overflow-checks = false
+opt-level = 0
+
+[profile.release.build-override]
+debug = false
+debug-assertions = false
+overflow-checks = false
+opt-level = 0
+
+# cargo test
+[profile.test]
+debug = 2
+debug-assertions = true
+opt-level = 2
+overflow-checks = true
+
+# cargo test --release
+[profile.bench]
+debug = 2
+debug-assertions = false
+lto = 'fat'
+opt-level = 3
