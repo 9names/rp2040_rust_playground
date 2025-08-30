@@ -4,14 +4,18 @@
 #![no_std]
 #![no_main]
 
-use defmt::*;
-use defmt_rtt as _;
 use embedded_hal::digital::OutputPin;
 use fugit::RateExtU32;
 use gc9a01a_driver::{Orientation, GC9A01A};
-use panic_probe as _;
 
-use ratatui::Terminal;
+use rp2040_panic_usb_boot as _;
+
+use ratatui::prelude::*;
+use ratatui::widgets::Block;
+use ratatui::widgets::Paragraph;
+use ratatui::widgets::Wrap;
+use ratatui::{Frame, Terminal};
+
 use rp2040_hal::{
     self as hal,
     clocks::{init_clocks_and_plls, Clock},
@@ -20,11 +24,7 @@ use rp2040_hal::{
     watchdog::Watchdog,
 };
 
-use embedded_graphics::{
-    pixelcolor::Rgb565,
-    prelude::*,
-    primitives::{Line, PrimitiveStyle, PrimitiveStyleBuilder, Rectangle},
-};
+use embedded_graphics::{pixelcolor::Rgb565, prelude::*};
 use embedded_hal::delay::DelayNs;
 
 const LCD_WIDTH: u32 = 240;
@@ -42,19 +42,18 @@ static HEAP: Heap = Heap::empty();
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 
-const XTAL_FREQ_HZ: u32 = 12_000_000u32;
-
 #[rp2040_hal::entry]
 fn main() -> ! {
     // Initialize the allocator BEFORE you use it
     {
         use core::mem::MaybeUninit;
-        const HEAP_SIZE: usize = 1024;
+        // We need a pretty big heap for ratatui. if the device reconnects as UF2, you probably hit this limit
+        const HEAP_SIZE: usize = 100000;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
         unsafe { HEAP.init(&raw mut HEAP_MEM as usize, HEAP_SIZE) }
     }
 
-    info!("Program start");
+    // info!("Program start");
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
     let mut watchdog = Watchdog::new(pac.WATCHDOG);
@@ -74,7 +73,6 @@ fn main() -> ! {
     .ok()
     .unwrap();
 
-    // let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().to_Hz());
     let mut timer = hal::Timer::new(pac.TIMER, &mut pac.RESETS, &clocks);
     let pins = hal::gpio::Pins::new(
         pac.IO_BANK0,
@@ -111,31 +109,48 @@ fn main() -> ! {
 
     // Clear the screen before turning on the backlight
     display.clear(Rgb565::BLACK).unwrap();
-    // _lcd_bl.into_push_pull_output_in_state(hal::gpio::PinState::High);
     timer.delay_ms(1000);
-    // This is the correct pin on the Raspberry Pico board. On other boards, even if they have an
-    // on-board LED, it might need to be changed.
-    //
-    // Notably, on the Pico W, the LED is not connected to any of the RP2040 GPIOs but to the cyw43 module instead.
-    // One way to do that is by using [embassy](https://github.com/embassy-rs/embassy/blob/main/examples/rp/src/bin/wifi_blinky.rs)
-    //
-    // If you have a Pico W and want to toggle a LED with a simple GPIO output pin, you can connect an external
-    // LED to one of the GPIO pins, and reference that pin here. Don't forget adding an appropriate resistor
-    // in series with the LED.
-    // let mut led_pin = pins.gpio25.into_push_pull_output();
 
-    // The RP2040 will crash if you call these!
-    // let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
-    // let mut terminal = Terminal::new(backend).unwrap();
+    // Turn the backlight on
+    _lcd_bl.set_high().unwrap();
+
+    let backend = EmbeddedBackend::new(&mut display, EmbeddedBackendConfig::default());
+    let terminal = Terminal::new(backend);
+    if let Ok(mut terminal) = terminal {
+        // info!("terminal okay");
+        let a = terminal.draw(draw);
+        if a.is_ok() {
+            // info!("draw success");
+        } else {
+            error_blink(&mut _lcd_bl, &mut timer.clone(), 200);
+        }
+    } else {
+        error_blink(&mut _lcd_bl, &mut timer.clone(), 500);
+    }
 
     loop {
-        info!("on!");
-        _lcd_bl.set_high().unwrap();
-        timer.delay_ms(500);
-        info!("off!");
-        _lcd_bl.set_low().unwrap();
-        timer.delay_ms(500);
+        // TODO:  do drawing here.
+        timer.delay_ms(1000);
     }
 }
 
+fn draw(frame: &mut Frame) {
+    let text = "Ratatui on embedded devices!";
+    let paragraph = Paragraph::new(text.dark_gray()).wrap(Wrap { trim: true });
+    let bordered_block = Block::bordered()
+        .border_style(Style::new().yellow())
+        .title("Mousefood");
+    frame.render_widget(paragraph.block(bordered_block), frame.area());
+}
 // End of file
+
+fn error_blink(
+    led: &mut impl embedded_hal::digital::OutputPin,
+    timer: &mut impl embedded_hal::delay::DelayNs,
+    delay: u32,
+) {
+    led.set_high().unwrap();
+    timer.delay_ms(delay);
+    led.set_low().unwrap();
+    timer.delay_ms(delay);
+}
