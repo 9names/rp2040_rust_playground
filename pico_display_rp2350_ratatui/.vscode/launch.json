@@ -1,0 +1,38 @@
+// The format of this file is specified in https://probe.rs/docs/tools/debugger/#start-a-debug-session-with-minimum-configuration
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "rust: cargo build",
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "rp235x-test",
+            "cwd": "${workspaceFolder}",
+            "chip": "rp235x",
+            // TODO: Does RP235x support connectUnderReset?
+            "connectUnderReset": false,
+            "speed": 4000,
+            "runtimeExecutable": "probe-rs",
+            "runtimeArgs": [
+                "dap-server"
+            ],
+            "flashingConfig": {
+                "flashingEnabled": true,
+                "haltAfterReset": false
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "programBinary": "target/thumbv8m.main-none-eabihf/debug/rp235x-test",
+                    "rttEnabled": true
+                    // Uncomment this if you've downloaded the SVD from
+                    // https://github.com/raspberrypi/pico-sdk/raw/2.1.1/src/rp2350/hardware_regs/RP2350.svd
+                    // and placed it in the .vscode directory
+                    // "svdFile": "./.vscode/rp235x.svd",
+                }
+            ],
+            "consoleLogLevel": "Info", //Error, Warn, Info, Debug
+            "wireProtocol": "Swd"
+        }
+    ]
+}
