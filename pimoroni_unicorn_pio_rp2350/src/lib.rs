@@ -18,7 +18,6 @@ const BITSTREAM_LENGTH: usize = ROW_COUNT2 * ROW_BYTES * BCD_FRAMES;
 pub const WIDTH: usize = 16;
 pub const HEIGHT: usize = 7;
 
-// TODO: must be aligned for 32bit dma transfer
 #[repr(C, align(4))]
 struct Bitstream {
     data: [u8; BITSTREAM_LENGTH],
@@ -32,8 +31,11 @@ impl Bitstream {
     }
 }
 
+// #[unsafe(no_mangle)]
+// static mut BITSTREAM: Bitstream = Bitstream::new();
+
 #[unsafe(no_mangle)]
-static mut BITSTREAM: Bitstream = Bitstream::new();
+static BITSTREAM: StaticCell<Bitstream> = StaticCell::new();
 
 pub struct UnicornPins {
     pub led_blank: Pin<DynPinId, FunctionPio0, PullNone>,
@@ -65,6 +67,7 @@ where
     tx: Tx<SM>,
     #[allow(dead_code)]
     pins: UnicornDynPins,
+    bitstream: &'pio mut Bitstream,
 }
 
 impl<'pio, P, SM> Unicorn<'pio, P, (P, SM)>
@@ -81,7 +84,7 @@ where
         pins: UnicornPins,
     ) -> Unicorn<'pio, P, (P, SM)> {
         let program = Self::build_program();
-        Self::init_bitstream_rs();
+        let bitstream = Self::init_bitstream_rs();
         // Install the program into PIO instruction memory.
         let installed = pio.install(&program).unwrap();
 
@@ -140,7 +143,13 @@ where
             led_blank, led_latch, led_clock, led_data, row_0, row_1, row_2, row_3, row_4, row_5,
             row_6,
         ]);
-        Self { pio, sm, tx, pins }
+        Self {
+            pio,
+            sm,
+            tx,
+            pins,
+            bitstream,
+        }
     }
 
     fn build_program() -> ::pio::Program<32> {
@@ -217,7 +226,9 @@ where
         .program
     }
 
-    pub fn init_bitstream_rs() {
+    fn init_bitstream_rs() -> &'pio mut Bitstream {
+        let b = BITSTREAM.init_with(|| Bitstream::new());
+
         // initialise the bcd timing values and row selects in the bitstream
         for row in 0..HEIGHT {
             for frame in 0..BCD_FRAMES {
@@ -230,25 +241,22 @@ where
                 // the last bcd frame is used to allow the fets to discharge to avoid ghosting
                 if frame == BCD_FRAMES - 1usize {
                     let bcd_ticks: u16 = 65535;
-                    unsafe {
-                        BITSTREAM.data[row_select_offset] = 0b11111111;
-                        BITSTREAM.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
-                        BITSTREAM.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
-                        for col in 0..6 {
-                            BITSTREAM.data[offset + col] = 0xff;
-                        }
+                    b.data[row_select_offset] = 0b11111111;
+                    b.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
+                    b.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
+                    for col in 0..6 {
+                        b.data[offset + col] = 0xff;
                     }
                 } else {
                     let row_select_mask = !(1 << (7 - row));
                     let bcd_ticks: u16 = 1 << frame;
-                    unsafe {
-                        BITSTREAM.data[row_select_offset] = row_select_mask;
-                        BITSTREAM.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
-                        BITSTREAM.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
-                    }
+                    b.data[row_select_offset] = row_select_mask;
+                    b.data[bcd_offset + 1] = ((bcd_ticks & 0xff00) >> 8) as u8;
+                    b.data[bcd_offset] = (bcd_ticks & 0xff) as u8;
                 }
             }
         }
+        b
     }
 }
 
@@ -319,14 +327,10 @@ where
             rgbd <<= shift;
 
             // clear existing data
-            unsafe {
-                BITSTREAM.data[offset + byte_offset] &= !nibble_mask;
-            }
+            self.bitstream.data[offset + byte_offset] &= !nibble_mask;
 
             // set new data
-            unsafe {
-                BITSTREAM.data[offset + byte_offset] |= rgbd as u8;
-            }
+            self.bitstream.data[offset + byte_offset] |= rgbd as u8;
 
             gr >>= 1;
             gg >>= 1;
@@ -335,10 +339,7 @@ where
     }
 
     pub fn draw(&mut self) {
-        // UB isn't real, it can't hurt you.
-        // TODO: re-write to use raw pointers or remove static mut buffer
-        #![allow(static_mut_refs)]
-        for batch in unsafe { BITSTREAM.data.chunks_exact(4) } {
+        for batch in self.bitstream.data.chunks_exact(4) {
             while !self.tx.write(u32::from_le_bytes(unsafe {
                 batch.try_into().unwrap_unchecked()
             })) {}
@@ -352,6 +353,7 @@ use embedded_graphics_core::{
     geometry::Size,
     geometry::{Dimensions, OriginDimensions},
 };
+use static_cell::StaticCell;
 
 #[cfg(feature = "graphics")]
 impl<'pio, P, SM> DrawTarget for Unicorn<'pio, P, SM>

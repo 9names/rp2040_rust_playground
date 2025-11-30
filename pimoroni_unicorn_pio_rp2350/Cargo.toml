@@ -27,6 +27,7 @@ embedded-graphics-core = { version = "0.3.3", optional = true }
 
 pio = "0.2"
 pio-proc = "0.2"
+static_cell = "2.1.1"
 
 [features]
 default = ["graphics"]
