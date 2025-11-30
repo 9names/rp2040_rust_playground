@@ -1,0 +1,29 @@
+[target.thumbv8m.main-none-eabihf]
+# Choose a default "cargo run" tool (see README for more info)
+# - `probe-rs` provides flashing and defmt via a hardware debugger, and stack unwind on panic
+# - `picotool` loads an elf, skipping unchanged flash sectors, verify it, and execute it
+runner = "probe-rs run --chip RP235x --protocol swd"
+# runner = "picotool load -u -v -x -t elf"
+
+# Pass some extra options to rustc, some of which get passed on to the linker.
+#
+# * linker argument --nmagic turns off page alignment of sections (which saves
+#   flash space)
+# * linker argument -Tlink.x tells the linker to use link.x as a linker script.
+#   This is usually provided by the cortex-m-rt crate, and by default the
+#   version in that crate will include a file called `memory.x` which describes
+#   the particular memory layout for your specific chip.
+# * linker argument -Tdefmt.x also tells the linker to use `defmt.x` as a
+#   secondary linker script. This is required to make defmt_rtt work.
+rustflags = [
+    "-C", "link-arg=--nmagic",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=-Tdefmt.x",
+    "-C", "target-cpu=cortex-m33",
+]
+
+[build]
+target = "thumbv8m.main-none-eabihf"
+
+[env]
+DEFMT_LOG = "debug"
